@@ -18,6 +18,7 @@ export class Messenger extends Effect.Service<Messenger>()(
         id: RequestId,
         result: Result
       ) {
+        yield* Effect.log(`Sending result:`, result);
         yield* PubSub.publish(outbound, {
           jsonrpc: "2.0",
           id: id,
@@ -29,6 +30,7 @@ export class Messenger extends Effect.Service<Messenger>()(
         id: RequestId,
         error: JsonRpcError
       ) {
+        yield* Effect.log(`Sending error:`, error);
         yield* PubSub.publish(outbound, {
           jsonrpc: "2.0",
           id: id,
@@ -39,6 +41,7 @@ export class Messenger extends Effect.Service<Messenger>()(
       const sendNotification = Effect.fn("SendNotification")(function* (
         notification: Notification
       ) {
+        yield* Effect.log(`Sending notification:`, notification);
         yield* PubSub.publish(outbound, {
           jsonrpc: "2.0",
           method: notification.method,
@@ -49,6 +52,7 @@ export class Messenger extends Effect.Service<Messenger>()(
       const sendRequest = Effect.fn("SendRequest")(function* (
         request: Request
       ) {
+        yield* Effect.log(`Sending request:`, request);
         yield* PubSub.publish(outbound, {
           jsonrpc: "2.0",
           method: request.method,

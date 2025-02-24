@@ -3,15 +3,25 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Effect MCP",
-  "keywords": ["effect", "mcp", "modelcontextprotocol"],
+  "keywords": [
+    "effect",
+    "mcp",
+    "modelcontextprotocol"
+  ],
   "author": "Garrett Hardin",
-  "license": "ISC",
+  "license": "MIT",
+  "scripts": {
+    "build": "turbo run build",
+    "build:watch": "turbo watch build"
+  },
   "devDependencies": {
     "@types/node": "^22.13.5",
+    "turbo": "^2.4.2",
     "typescript": "^5.7.3"
   },
   "workspaces": [
     "examples/*",
     "packages/*"
-  ]
+  ],
+  "packageManager": "pnpm@9.14.2"
 }

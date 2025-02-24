@@ -1,8 +1,24 @@
 #!/usr/bin/env node
 
 import { McpServer, StdioServerTransport } from "@effect-mcp/server";
-import { NodeContext, NodeRuntime } from "@effect/platform-node";
-import { Effect, Layer } from "effect";
+import { PlatformLogger } from "@effect/platform";
+import {
+  NodeContext,
+  NodeFileSystem,
+  NodeRuntime,
+} from "@effect/platform-node";
+import { Effect, FiberRef, HashSet, Layer, Logger, LogLevel } from "effect";
+
+// TODO: Clear loggers as part of stdio transport
+export const clearAllLoggers = Layer.scopedDiscard(
+  Effect.locallyScoped(FiberRef.currentLoggers, HashSet.empty())
+);
+
+const fileLogger = Logger.logfmtLogger.pipe(PlatformLogger.toFile("stdio.log"));
+const LoggerLive = Logger.replaceScoped(Logger.defaultLogger, fileLogger).pipe(
+  Layer.provide(NodeFileSystem.layer),
+  Layer.provide(clearAllLoggers)
+);
 
 const ServerLive = McpServer.layer({
   name: "basic-mcp",
@@ -10,7 +26,13 @@ const ServerLive = McpServer.layer({
 }).pipe(Layer.provide(Layer.scope));
 
 const AppLive = Layer.provideMerge(ServerLive, NodeContext.layer).pipe(
+  //   Layer.provide(clearAllLoggers),
   Layer.provideMerge(Layer.scope)
 );
 
-NodeRuntime.runMain(StdioServerTransport.make.pipe(Effect.provide(AppLive)));
+StdioServerTransport.make.pipe(
+  Effect.provide(LoggerLive),
+  Logger.withMinimumLogLevel(LogLevel.Debug),
+  Effect.provide(AppLive),
+  NodeRuntime.runMain
+);

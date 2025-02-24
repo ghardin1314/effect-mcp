@@ -59,6 +59,7 @@ export const make = (
       message: InitializeRequest
     ) {
       // TODO: Validate client info
+      yield* Effect.log(`Initializing server with client info:`, message);
 
       const response: InitializeResult = {
         protocolVersion: LATEST_PROTOCOL_VERSION,
@@ -157,7 +158,10 @@ export const make = (
             JsonRpcError.fromCode("ParseError", error.message, error.issue)
           )
         );
-        Match.value(message).pipe(
+
+        yield* Effect.log(`Handling request:`, message);
+
+        yield* Match.value(message).pipe(
           Match.when({ method: "ping" }, (msg) =>
             _handlePing(rawMessage.id, msg)
           ),
@@ -200,6 +204,9 @@ export const make = (
           Match.exhaustive
         );
       }).pipe(
+        Effect.tapError((err) =>
+          Effect.logError(`Error handling request: ${err.message}`)
+        ),
         Effect.catchTag("JsonRpcError", (err) =>
           messenger.sendError(rawMessage.id, err)
         )

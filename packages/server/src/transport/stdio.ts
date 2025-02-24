@@ -17,25 +17,30 @@ export const make = Effect.gen(function* () {
   const messenger = yield* Messenger;
   const mcp = yield* MCP;
   const terminal = yield* Terminal.Terminal;
+  // const fs = yield* FileSystem.FileSystem;
 
   const outbound = yield* messenger.outbound.subscribe;
 
   // Start listening for messages to send via stdout
   yield* Effect.gen(function* () {
     const response = yield* Queue.take(outbound);
+    yield* Effect.log(`Sending message:`, response);
 
     const encoded = yield* Schema.encode(JSONRPCMessage)(response);
 
-    yield* terminal.display(JSON.stringify(encoded));
+    yield* terminal.display(JSON.stringify(encoded) + "\n");
   }).pipe(Effect.repeat(Schedule.forever), Effect.fork);
 
   // Start listening for messages via stdin
   yield* Effect.gen(function* () {
     const input = yield* terminal.readLine;
-    console.debug("input", input);
+
+    yield* Effect.log(`Received message: ${input}`);
 
     if (input) {
-      const parsed = yield* Schema.decodeUnknown(JSONRPCMessage)(input);
+      const parsed = yield* Schema.decodeUnknown(JSONRPCMessage)(
+        JSON.parse(input)
+      );
 
       yield* Match.value(parsed)
         .pipe(
@@ -50,8 +55,7 @@ export const make = Effect.gen(function* () {
             (msg) => mcp.handleResponse(msg)
           ),
           Match.when(
-            (message): message is JSONRPCRequest =>
-              "id" in message && typeof message.id === "string",
+            (message): message is JSONRPCRequest => "id" in message,
             (msg) => mcp.handleRequest(msg)
           ),
 
