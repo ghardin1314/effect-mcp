@@ -1,0 +1,71 @@
+import { Terminal } from "@effect/platform";
+import { Effect, Match, Queue, Schedule, Schema } from "effect";
+import { MCP } from "../mcp/mcp.js";
+import { Messenger } from "../messenger.js";
+import {
+  JSONRPCError,
+  JSONRPCMessage,
+  JSONRPCRequest,
+  JSONRPCResponse,
+} from "../schema.js";
+
+export class StdioServerTransport extends Effect.Service<StdioServerTransport>()(
+  "@effect-mcp/server/StdioServerTransport",
+  {
+    effect: Effect.gen(function* () {
+      const messenger = yield* Messenger;
+      const mcp = yield* MCP;
+      const terminal = yield* Terminal.Terminal;
+
+      const outbound = yield* messenger.outbound.subscribe;
+
+      // Start listening for messages via stdin
+      yield* Effect.gen(function* () {
+        const input = yield* terminal.readLine;
+
+        if (input) {
+          const parsed = yield* Schema.decodeUnknown(JSONRPCMessage)(input);
+
+          yield* Match.value(parsed)
+            .pipe(
+              Match.when(
+                (message): message is JSONRPCError =>
+                  "error" in message && typeof message.error === "object",
+                (msg) => mcp.handleError(msg)
+              ),
+              Match.when(
+                (message): message is JSONRPCResponse =>
+                  "result" in message && typeof message.result === "object",
+                (msg) => mcp.handleResponse(msg)
+              ),
+              Match.when(
+                (message): message is JSONRPCRequest =>
+                  "id" in message && typeof message.id === "string",
+                (msg) => mcp.handleRequest(msg)
+              ),
+
+              Match.orElse((msg) => mcp.handleNotification(msg))
+            )
+            .pipe(Effect.fork);
+        }
+      }).pipe(
+        Effect.catchTag("ParseError", (err) =>
+          Effect.logError(`Error parsing message: ${err.message}`)
+        ),
+        Effect.repeat(Schedule.forever),
+        Effect.fork
+      );
+
+      // Start listening for messages to send via stdout
+      yield* Effect.gen(function* () {
+        const response = yield* Queue.take(outbound);
+
+        const encoded = yield* Schema.encode(JSONRPCMessage)(response);
+
+        yield* terminal.display(JSON.stringify(encoded));
+      }).pipe(Effect.repeat(Schedule.forever), Effect.fork);
+
+      return {};
+    }),
+  }
+) {}

@@ -1,0 +1,17 @@
+{
+  "name": "@effect-mcp/server",
+  "version": "1.0.0",
+  "description": "Effect MCP Server",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {},
+  "peerDependencies": {
+    "effect": "^3.13.2"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@effect/platform": "^0.77.2"
+  }
+}

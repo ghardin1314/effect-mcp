@@ -1,0 +1,70 @@
+import { Effect, PubSub } from "effect";
+import type { JsonRpcError } from "./error.js";
+import type {
+  JSONRPCMessage,
+  Notification,
+  Request,
+  RequestId,
+  Result,
+} from "./schema.js";
+
+export class Messenger extends Effect.Service<Messenger>()(
+  "@effect-mcp/server/Messenger",
+  {
+    effect: Effect.gen(function* () {
+      const inbound = yield* PubSub.bounded<JSONRPCMessage>(100);
+      const outbound = yield* PubSub.bounded<JSONRPCMessage>(100);
+
+      const sendResult = Effect.fn("SendResult")(function* (
+        id: RequestId,
+        result: Result
+      ) {
+        yield* PubSub.publish(outbound, {
+          jsonrpc: "2.0",
+          id: id,
+          result: result,
+        });
+      });
+
+      const sendError = Effect.fn("SendError")(function* (
+        id: RequestId,
+        error: JsonRpcError
+      ) {
+        yield* PubSub.publish(outbound, {
+          jsonrpc: "2.0",
+          id: id,
+          error: error,
+        });
+      });
+
+      const sendNotification = Effect.fn("SendNotification")(function* (
+        notification: Notification
+      ) {
+        yield* PubSub.publish(outbound, {
+          jsonrpc: "2.0",
+          method: notification.method,
+          params: notification.params,
+        });
+      });
+
+      const sendRequest = Effect.fn("SendRequest")(function* (
+        request: Request
+      ) {
+        yield* PubSub.publish(outbound, {
+          jsonrpc: "2.0",
+          method: request.method,
+          params: request.params,
+        });
+      });
+      
+      return {
+        inbound,
+        outbound,
+        sendResult,
+        sendError,
+        sendNotification,
+        sendRequest,
+      };
+    }),
+  }
+) {}
