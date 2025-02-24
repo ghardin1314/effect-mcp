@@ -287,4 +287,6 @@ export const make = (
   });
 
 export const layer = (config: Implementation) =>
-  Layer.effect(MCP.MCP, make(config));
+  Layer.effect(MCP.MCP, make(config)).pipe(
+    Layer.provideMerge(Messenger.Default)
+  );

@@ -1,5 +1,5 @@
 import { Terminal } from "@effect/platform";
-import { Effect, Match, Queue, Schedule, Schema } from "effect";
+import { Context, Effect, Layer, Match, Queue, Schedule, Schema } from "effect";
 import { MCP } from "../mcp/mcp.js";
 import { Messenger } from "../messenger.js";
 import {
@@ -9,63 +9,62 @@ import {
   JSONRPCResponse,
 } from "../schema.js";
 
-export class StdioServerTransport extends Effect.Service<StdioServerTransport>()(
-  "@effect-mcp/server/StdioServerTransport",
-  {
-    effect: Effect.gen(function* () {
-      const messenger = yield* Messenger;
-      const mcp = yield* MCP;
-      const terminal = yield* Terminal.Terminal;
+export class StdioServerTransport extends Context.Tag(
+  "@effect-mcp/server/StdioServerTransport"
+)<StdioServerTransport, void>() {}
 
-      const outbound = yield* messenger.outbound.subscribe;
+export const make = Effect.gen(function* () {
+  const messenger = yield* Messenger;
+  const mcp = yield* MCP;
+  const terminal = yield* Terminal.Terminal;
 
-      // Start listening for messages via stdin
-      yield* Effect.gen(function* () {
-        const input = yield* terminal.readLine;
+  const outbound = yield* messenger.outbound.subscribe;
 
-        if (input) {
-          const parsed = yield* Schema.decodeUnknown(JSONRPCMessage)(input);
+  // Start listening for messages via stdin
+  yield* Effect.gen(function* () {
+    const input = yield* terminal.readLine;
 
-          yield* Match.value(parsed)
-            .pipe(
-              Match.when(
-                (message): message is JSONRPCError =>
-                  "error" in message && typeof message.error === "object",
-                (msg) => mcp.handleError(msg)
-              ),
-              Match.when(
-                (message): message is JSONRPCResponse =>
-                  "result" in message && typeof message.result === "object",
-                (msg) => mcp.handleResponse(msg)
-              ),
-              Match.when(
-                (message): message is JSONRPCRequest =>
-                  "id" in message && typeof message.id === "string",
-                (msg) => mcp.handleRequest(msg)
-              ),
+    if (input) {
+      const parsed = yield* Schema.decodeUnknown(JSONRPCMessage)(input);
 
-              Match.orElse((msg) => mcp.handleNotification(msg))
-            )
-            .pipe(Effect.fork);
-        }
-      }).pipe(
-        Effect.catchTag("ParseError", (err) =>
-          Effect.logError(`Error parsing message: ${err.message}`)
-        ),
-        Effect.repeat(Schedule.forever),
-        Effect.fork
-      );
+      yield* Match.value(parsed)
+        .pipe(
+          Match.when(
+            (message): message is JSONRPCError =>
+              "error" in message && typeof message.error === "object",
+            (msg) => mcp.handleError(msg)
+          ),
+          Match.when(
+            (message): message is JSONRPCResponse =>
+              "result" in message && typeof message.result === "object",
+            (msg) => mcp.handleResponse(msg)
+          ),
+          Match.when(
+            (message): message is JSONRPCRequest =>
+              "id" in message && typeof message.id === "string",
+            (msg) => mcp.handleRequest(msg)
+          ),
 
-      // Start listening for messages to send via stdout
-      yield* Effect.gen(function* () {
-        const response = yield* Queue.take(outbound);
+          Match.orElse((msg) => mcp.handleNotification(msg))
+        )
+        .pipe(Effect.fork);
+    }
+  }).pipe(
+    Effect.catchTag("ParseError", (err) =>
+      Effect.logError(`Error parsing message: ${err.message}`)
+    ),
+    Effect.repeat(Schedule.forever),
+    Effect.fork
+  );
 
-        const encoded = yield* Schema.encode(JSONRPCMessage)(response);
+  // Start listening for messages to send via stdout
+  yield* Effect.gen(function* () {
+    const response = yield* Queue.take(outbound);
 
-        yield* terminal.display(JSON.stringify(encoded));
-      }).pipe(Effect.repeat(Schedule.forever), Effect.fork);
+    const encoded = yield* Schema.encode(JSONRPCMessage)(response);
 
-      return {};
-    }),
-  }
-) {}
+    yield* terminal.display(JSON.stringify(encoded));
+  }).pipe(Effect.repeat(Schedule.forever), Effect.fork);
+});
+
+export const layer = Layer.effect(StdioServerTransport, make);

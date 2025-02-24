@@ -12,7 +12,6 @@ export class Messenger extends Effect.Service<Messenger>()(
   "@effect-mcp/server/Messenger",
   {
     effect: Effect.gen(function* () {
-      const inbound = yield* PubSub.bounded<JSONRPCMessage>(100);
       const outbound = yield* PubSub.bounded<JSONRPCMessage>(100);
 
       const sendResult = Effect.fn("SendResult")(function* (
@@ -56,9 +55,8 @@ export class Messenger extends Effect.Service<Messenger>()(
           params: request.params,
         });
       });
-      
+
       return {
-        inbound,
         outbound,
         sendResult,
         sendError,
