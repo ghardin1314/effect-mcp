@@ -1,17 +1,46 @@
 {
   "name": "@effect-mcp/server",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Effect MCP Server",
-  "main": "src/index.ts",
   "type": "module",
-  "scripts": {},
-  "peerDependencies": {
-    "effect": "^3.13.2"
+  "scripts": {
+    "build": "pnpm run build:code && pnpm run build:types",
+    "build:code": "tsup",
+    "build:types": "rm -f tsconfig.tsbuildinfo && tsc --emitDeclarationOnly"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "effect",
+    "mcp",
+    "modelcontextprotocol"
+  ],
+  "author": "Garrett Hardin",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "@effect-mcp/server": "./src/index.ts",
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "@effect-mcp/server": "./src/index.ts",
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
   "dependencies": {
     "@effect/platform": "^0.77.2"
+  },
+  "peerDependencies": {
+    "effect": "^3.13.2",
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.6"
   }
 }

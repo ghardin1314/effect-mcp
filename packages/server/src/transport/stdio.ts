@@ -20,9 +20,19 @@ export const make = Effect.gen(function* () {
 
   const outbound = yield* messenger.outbound.subscribe;
 
+  // Start listening for messages to send via stdout
+  yield* Effect.gen(function* () {
+    const response = yield* Queue.take(outbound);
+
+    const encoded = yield* Schema.encode(JSONRPCMessage)(response);
+
+    yield* terminal.display(JSON.stringify(encoded));
+  }).pipe(Effect.repeat(Schedule.forever), Effect.fork);
+
   // Start listening for messages via stdin
   yield* Effect.gen(function* () {
     const input = yield* terminal.readLine;
+    console.debug("input", input);
 
     if (input) {
       const parsed = yield* Schema.decodeUnknown(JSONRPCMessage)(input);
@@ -53,18 +63,8 @@ export const make = Effect.gen(function* () {
     Effect.catchTag("ParseError", (err) =>
       Effect.logError(`Error parsing message: ${err.message}`)
     ),
-    Effect.repeat(Schedule.forever),
-    Effect.fork
+    Effect.repeat(Schedule.forever)
   );
-
-  // Start listening for messages to send via stdout
-  yield* Effect.gen(function* () {
-    const response = yield* Queue.take(outbound);
-
-    const encoded = yield* Schema.encode(JSONRPCMessage)(response);
-
-    yield* terminal.display(JSON.stringify(encoded));
-  }).pipe(Effect.repeat(Schedule.forever), Effect.fork);
 });
 
 export const layer = Layer.effect(StdioServerTransport, make);

@@ -1,0 +1,26 @@
+{
+  "name": "basic",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite-node src/index.ts",
+    "build": "tsup"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@effect-mcp/server": "workspace:*",
+    "@effect/platform": "^0.77.2",
+    "@effect/platform-node": "^0.73.2",
+    "effect": "^3.13.2"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.1",
+    "vite-node": "^3.0.7"
+  }
+}
