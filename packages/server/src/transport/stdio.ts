@@ -1,5 +1,15 @@
 import { Terminal } from "@effect/platform";
-import { Context, Effect, Layer, Match, Queue, Schedule, Schema } from "effect";
+import {
+  Context,
+  Effect,
+  FiberRef,
+  HashSet,
+  Layer,
+  Match,
+  Queue,
+  Schedule,
+  Schema,
+} from "effect";
 import { MCP } from "../mcp/mcp.js";
 import { Messenger } from "../messenger.js";
 import {
@@ -70,5 +80,10 @@ export const make = Effect.gen(function* () {
     Effect.repeat(Schedule.forever)
   );
 });
+
+// TODO: Clear loggers as part of stdio transport
+export const clearAllLoggers = Layer.scopedDiscard(
+  Effect.locallyScoped(FiberRef.currentLoggers, HashSet.empty())
+);
 
 export const layer = Layer.effect(StdioServerTransport, make);

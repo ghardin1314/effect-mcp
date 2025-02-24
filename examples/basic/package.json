@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@effect-mcp/server": "workspace:*",
+    "@effect/ai": "^0.10.2",
     "@effect/platform": "^0.77.2",
     "@effect/platform-node": "^0.73.2",
     "@modelcontextprotocol/sdk": "^1.6.0",

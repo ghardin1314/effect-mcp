@@ -1,8 +1,12 @@
-import { Effect, Layer, Match, Schema, Scope } from "effect";
+import { AiToolkit } from "@effect/ai";
+import { Effect, Layer, Match, Option, Predicate, Schema, Scope } from "effect";
+import * as JsonSchema from "effect/JSONSchema";
+import * as AST from "effect/SchemaAST";
 import { JsonRpcError } from "../error.js";
 import { Messenger } from "../messenger.js";
 import {
   CallToolRequest,
+  CallToolResult,
   ClientNotification,
   ClientRequest,
   ClientResult,
@@ -18,9 +22,11 @@ import {
   ListResourceTemplatesRequest,
   ListRootsResult,
   ListToolsRequest,
+  ListToolsResult,
   ReadResourceRequest,
   SetLevelRequest,
   SubscribeRequest,
+  Tool,
   UnsubscribeRequest,
   type CreateMessageResult,
   type Implementation,
@@ -33,14 +39,19 @@ import * as MCP from "./mcp.js";
 
 export const make = (
   config: Implementation
-): Effect.Effect<MCP.MCP.Service, never, Scope.Scope | Messenger> =>
+): Effect.Effect<
+  MCP.MCP.Service,
+  never,
+  Scope.Scope | Messenger | AiToolkit.Registry
+> =>
   Effect.gen(function* () {
     const messenger = yield* Messenger;
+    const toolkit = yield* Effect.serviceOption(AiToolkit.Registry);
     // TODO: Add tools, prompts, resources, etc.
 
     const _notImplemented = (...args: any[]) =>
       Effect.gen(function* () {
-        yield* Effect.logDebug(`Not implemented: ${args.join(" ")}`);
+        yield* Effect.logDebug(`Not implemented`, args);
       });
 
     const _handlePing = Effect.fn("HandlePing")(function* (
@@ -64,8 +75,12 @@ export const make = (
       const response: InitializeResult = {
         protocolVersion: LATEST_PROTOCOL_VERSION,
         // TODO: Get from tools, etc.
-        capabilities: {},
-        // TODO: Make Configurable
+        capabilities: {
+          tools: {},
+          prompts: {},
+          resources: {},
+          resourceTemplates: {},
+        },
         serverInfo: config,
       };
 
@@ -104,7 +119,31 @@ export const make = (
       id: RequestId,
       message: ListToolsRequest
     ) {
-      // TODO: Implement
+      const tools: Tool[] = [];
+
+      if (Option.isNone(toolkit)) {
+        const data: ListToolsResult = {
+          tools,
+        };
+        return yield* messenger.sendResult(id, data);
+      }
+
+      yield* Effect.forEach(toolkit.value.keys(), (schema) =>
+        Effect.gen(function* () {
+          const ast = (schema as any).ast;
+
+          tools.push({
+            name: schema._tag,
+            inputSchema: makeJsonSchema(ast) as any,
+            description: getDescription(ast),
+          });
+        })
+      );
+
+      const data: ListToolsResult = {
+        tools,
+      };
+      return yield* messenger.sendResult(id, data);
     });
 
     const _handleCallTool = Effect.fn("HandleCallTool")(function* (
@@ -112,6 +151,60 @@ export const make = (
       message: CallToolRequest
     ) {
       // TODO: Implement
+      if (Option.isNone(toolkit)) {
+        return yield* messenger.sendError(
+          id,
+          JsonRpcError.fromCode(
+            "InvalidParams",
+            "The tool does not exist / is not available."
+          )
+        );
+      }
+
+      const tool = Array.from(toolkit.value.entries()).find(
+        ([schema, _]) => schema._tag === message.params.name
+      );
+      if (!tool) {
+        return yield* messenger.sendError(
+          id,
+          JsonRpcError.fromCode(
+            "InvalidParams",
+            "The tool does not exist / is not available."
+          )
+        );
+      }
+      const decodeArgs = Schema.decodeUnknown(tool[0] as any);
+      const encodeSuccess = Schema.encode(tool[0].success);
+
+      const output = yield* decodeArgs(
+        injectTag(message.params.arguments, message.params.name)
+      ).pipe(
+        Effect.mapError((err) =>
+          JsonRpcError.fromCode("ParseError", err.message, err.issue)
+        ),
+        Effect.flatMap(tool[1]),
+        Effect.mapError((err) =>
+          JsonRpcError.fromCode("InternalError", "Error calling tool", err)
+        ),
+        Effect.flatMap((res) =>
+          encodeSuccess(res).pipe(
+            Effect.mapError((err) =>
+              JsonRpcError.fromCode("ParseError", "Error encoding tool result", err)
+            )
+          )
+        )
+      ) as Effect.Effect<any, JsonRpcError>;
+
+      const result: CallToolResult = {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(output),
+          },
+        ],
+      };
+
+      yield* messenger.sendResult(id, result);
     });
 
     const _handleListResources = Effect.fn("HandleListResources")(function* (
@@ -297,3 +390,59 @@ export const layer = (config: Implementation) =>
   Layer.effect(MCP.MCP, make(config)).pipe(
     Layer.provideMerge(Messenger.Default)
   );
+
+/**
+ *
+ * Internal utilities copied from `@effect/ai` since they are not exported.
+ */
+
+/**
+ *
+ * @param ast
+ * @returns
+ */
+
+const makeJsonSchema = (ast: AST.AST): JsonSchema.JsonSchema7 => {
+  const $defs = {};
+  const schema = JsonSchema.fromAST(ast, {
+    definitions: $defs,
+    topLevelReferenceStrategy: "skip",
+  });
+  if (Object.keys($defs).length === 0) return schema;
+  (schema as any).$defs = $defs;
+  return schema;
+};
+
+const getDescription = (ast: AST.AST): string => {
+  const annotations =
+    ast._tag === "Transformation"
+      ? {
+          ...ast.to.annotations,
+          ...ast.annotations,
+        }
+      : ast.annotations;
+  return AST.DescriptionAnnotationId in annotations
+    ? (annotations[AST.DescriptionAnnotationId] as string)
+    : "";
+};
+
+/**
+ * Certain providers (i.e. Anthropic) do not do a great job returning the
+ * `_tag` enum with the parameters for a tool call. This method ensures that
+ * the `_tag` is injected into the tool call parameters to avoid issues when
+ * decoding.
+ */
+function injectTag(params: unknown, tag: string) {
+  // If for some reason we do not receive an object back for the tool call
+  // input parameters, just return them unchanged
+  if (!Predicate.isObject(params)) {
+    return params;
+  }
+  // If the tool's `_tag` is already present in input parameters, return them
+  // unchanged
+  if (Predicate.hasProperty(params, "_tag")) {
+    return params;
+  }
+  // Otherwise inject the tool's `_tag` into the input parameters
+  return { ...params, _tag: tag };
+}
