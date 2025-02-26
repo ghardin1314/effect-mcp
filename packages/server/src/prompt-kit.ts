@@ -1,5 +1,10 @@
-import { Effect, HashMap, Inspectable, Schema } from "effect";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as HashMap from "effect/HashMap";
+import * as Inspectable from "effect/Inspectable";
+import * as Layer from "effect/Layer";
 import { pipeArguments, type Pipeable } from "effect/Pipeable";
+import * as Schema from "effect/Schema";
 import type { JsonRpcError } from "./error.js";
 import type { PromptMessage } from "./schema.js";
 
@@ -21,6 +26,14 @@ export const TypeId: unique symbol = Symbol.for("@effect-mcp/server/PromptKit");
 
 export type TypeId = typeof TypeId;
 
+export class Registry extends Context.Tag(
+  "@effect-mcp/server/PromptKit/Registry"
+)<Registry, HashMap.HashMap<string, PromptImplAny>>() {
+  static readonly Live: Layer.Layer<Registry> = Layer.sync(Registry, () =>
+    HashMap.empty()
+  );
+}
+
 export interface PromptKit<in out Prompts extends PromptImplAny>
   extends Inspectable.Inspectable,
     Pipeable {
@@ -33,6 +46,7 @@ export interface PromptKit<in out Prompts extends PromptImplAny>
   readonly concat: <P extends PromptImplAny>(
     that: PromptKit<P>
   ) => PromptKit<Prompts | P>;
+  readonly finalize: () => Layer.Layer<Registry, never>;
 }
 
 class PromptKitImpl<Prompts extends PromptImplAny>
@@ -83,8 +97,13 @@ class PromptKitImpl<Prompts extends PromptImplAny>
       HashMap.union(this.prompts, that.prompts)
     );
   }
+
+  finalize(): Layer.Layer<Registry, never> {
+    return Layer.succeed(Registry, this.prompts);
+  }
 }
 
 export const empty: PromptKit<never> = new PromptKitImpl<never>(
   HashMap.empty()
 );
+

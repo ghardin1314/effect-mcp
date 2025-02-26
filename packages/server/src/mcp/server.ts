@@ -1,9 +1,11 @@
 import { AiToolkit } from "@effect/ai";
 import { Effect, Layer, Match, Option, Predicate, Schema, Scope } from "effect";
+import * as HashMap from "effect/HashMap";
 import * as JsonSchema from "effect/JSONSchema";
 import * as AST from "effect/SchemaAST";
 import { JsonRpcError } from "../error.js";
 import { Messenger } from "../messenger.js";
+import * as PromptKit from "../prompt-kit.js";
 import {
   CallToolRequest,
   CallToolResult,
@@ -12,17 +14,21 @@ import {
   ClientResult,
   CompleteRequest,
   GetPromptRequest,
+  GetPromptResult,
   JSONRPCError,
   JSONRPCNotification,
   JSONRPCRequest,
   JSONRPCResponse,
   LATEST_PROTOCOL_VERSION,
   ListPromptsRequest,
+  ListPromptsResult,
   ListResourcesRequest,
   ListResourceTemplatesRequest,
   ListRootsResult,
   ListToolsRequest,
   ListToolsResult,
+  Prompt,
+  PromptMessage,
   ReadResourceRequest,
   SetLevelRequest,
   SubscribeRequest,
@@ -47,6 +53,7 @@ export const make = (
   Effect.gen(function* () {
     const messenger = yield* Messenger;
     const toolkit = yield* Effect.serviceOption(AiToolkit.Registry);
+    const promptkit = yield* Effect.serviceOption(PromptKit.Registry);
     // TODO: Add tools, prompts, resources, etc.
 
     const _notImplemented = (...args: any[]) =>
@@ -105,14 +112,76 @@ export const make = (
       id: RequestId,
       message: GetPromptRequest
     ) {
-      // TODO: Implement
+      if (Option.isNone(promptkit)) {
+        return yield* messenger.sendError(
+          id,
+          JsonRpcError.fromCode("InvalidParams", "No prompts available")
+        );
+      }
+
+      const prompt = HashMap.get(promptkit.value, message.params.name);
+      if (Option.isNone(prompt)) {
+        return yield* messenger.sendError(
+          id,
+          JsonRpcError.fromCode("InvalidParams", "Prompt not found")
+        );
+      }
+
+      const decodeArgs = Schema.decodeUnknown(
+        Schema.Struct(prompt.value.arguments)
+      );
+      const encodeSuccess = Schema.encode(Schema.Array(PromptMessage));
+
+      const args = yield* decodeArgs(message.params.arguments).pipe(
+        Effect.mapError((err) =>
+          JsonRpcError.fromCode("ParseError", err.message, err.issue)
+        ),
+        Effect.flatMap(prompt.value.handler),
+        Effect.mapError((err) =>
+          JsonRpcError.fromCode("InternalError", "Error calling prompt", err)
+        ),
+        Effect.flatMap((messages) =>
+          encodeSuccess(messages).pipe(
+            Effect.mapError((err) =>
+              JsonRpcError.fromCode("ParseError", err.message, err.issue)
+            )
+          )
+        )
+      ) as Effect.Effect<PromptMessage[], JsonRpcError>;
+
+      const result: GetPromptResult = {
+        messages: args,
+      };
+
+      yield* messenger.sendResult(id, result);
     });
 
     const _handleListPrompts = Effect.fn("HandleListPrompts")(function* (
       id: RequestId,
       message: ListPromptsRequest
     ) {
-      // TODO: Implement
+      const prompts: Prompt[] = [];
+
+      if (Option.isNone(promptkit)) {
+        const data: ListPromptsResult = {
+          prompts,
+        };
+        return yield* messenger.sendResult(id, data);
+      }
+
+      for (const prompt of HashMap.values(promptkit.value)) {
+        // TODO: Extract arguments from prompt.arguments schema
+        prompts.push({
+          name: prompt.name,
+          description: prompt.description,
+          // arguments: prompt.arguments,
+        });
+      }
+
+      const data: ListPromptsResult = {
+        prompts,
+      };
+      return yield* messenger.sendResult(id, data);
     });
 
     const _handleListTools = Effect.fn("HandleListTools")(function* (
@@ -189,7 +258,11 @@ export const make = (
         Effect.flatMap((res) =>
           encodeSuccess(res).pipe(
             Effect.mapError((err) =>
-              JsonRpcError.fromCode("ParseError", "Error encoding tool result", err)
+              JsonRpcError.fromCode(
+                "ParseError",
+                "Error encoding tool result",
+                err
+              )
             )
           )
         )
