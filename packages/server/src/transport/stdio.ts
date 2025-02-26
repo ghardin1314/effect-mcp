@@ -5,19 +5,14 @@ import {
   FiberRef,
   HashSet,
   Layer,
-  Match,
   Queue,
   Schedule,
   Schema,
 } from "effect";
 import { MCP } from "../mcp/mcp.js";
 import { Messenger } from "../messenger.js";
-import {
-  JSONRPCError,
-  JSONRPCMessage,
-  JSONRPCRequest,
-  JSONRPCResponse,
-} from "../schema.js";
+import { JSONRPCMessage } from "../schema.js";
+import { handleMessage } from "./shared.js";
 
 export class StdioServerTransport extends Context.Tag(
   "@effect-mcp/server/StdioServerTransport"
@@ -52,26 +47,7 @@ export const make = Effect.gen(function* () {
         JSON.parse(input)
       );
 
-      yield* Match.value(parsed)
-        .pipe(
-          Match.when(
-            (message): message is JSONRPCError =>
-              "error" in message && typeof message.error === "object",
-            (msg) => mcp.handleError(msg)
-          ),
-          Match.when(
-            (message): message is JSONRPCResponse =>
-              "result" in message && typeof message.result === "object",
-            (msg) => mcp.handleResponse(msg)
-          ),
-          Match.when(
-            (message): message is JSONRPCRequest => "id" in message,
-            (msg) => mcp.handleRequest(msg)
-          ),
-
-          Match.orElse((msg) => mcp.handleNotification(msg))
-        )
-        .pipe(Effect.fork);
+      yield* handleMessage(parsed).pipe(Effect.fork);
     }
   }).pipe(
     Effect.catchTag("ParseError", (err) =>
