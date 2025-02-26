@@ -22,7 +22,6 @@ const LoggerLive = Logger.replaceScoped(Logger.defaultLogger, fileLogger).pipe(
 );
 
 const AppLive = Layer.provideMerge(ServerLive, NodeContext.layer).pipe(
-  //   Layer.provide(clearAllLoggers),
   Layer.provideMerge(Layer.scope)
 );
 

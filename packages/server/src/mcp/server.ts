@@ -170,11 +170,21 @@ export const make = (
       }
 
       for (const prompt of HashMap.values(promptkit.value)) {
+        const ast = Schema.Struct(prompt.arguments).ast;
+        const propertySigs = AST.getPropertySignatures(ast);
+        const args = propertySigs.map((prop) => ({
+          name: prop.name.toString(),
+          description: (prop.annotations.description ?? "") as string,
+          required: !prop.isOptional,
+        }));
+
+        console.dir({ ast, propertySigs, args }, { depth: null });
+
         // TODO: Extract arguments from prompt.arguments schema
         prompts.push({
           name: prompt.name,
           description: prompt.description,
-          // arguments: prompt.arguments,
+          arguments: args,
         });
       }
 
