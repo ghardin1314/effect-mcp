@@ -1,4 +1,4 @@
-import { McpServer, PromptKit } from "@effect-mcp/server";
+import { McpServer, Prompt, PromptKit } from "@effect-mcp/server";
 import { AiToolkit } from "@effect/ai";
 import { Effect, Layer, Schema } from "effect";
 
@@ -29,27 +29,55 @@ const ToolkitLive = toolkit.implement((handlers) =>
  */
 
 const PromptkitLive = PromptKit.empty
-  .add({
-    name: "Echo",
-    description: "Echo a message",
-    arguments: {
-      message: Schema.String.annotations({
-        description: "The message to echo",
-      }),
-    },
-    handler: (params) =>
-      Effect.succeed([
-        {
-          role: "user",
-          content: {
-            type: "text",
-            text: `Echo: ${params.message}`,
-          },
+  .add(
+    Prompt.effect(
+      {
+        name: "Echo",
+        description: "Echo a message",
+        arguments: {
+          message: Schema.String,
         },
-      ]),
-  })
+      },
+      (params) =>
+        Effect.succeed([
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Echo: ${params.message}`,
+            },
+          },
+        ])
+    )
+  )
+  .add(
+    Prompt.effect(
+      {
+        name: "Greet",
+        description: "Greet someone with a friendly message",
+        arguments: {
+          name: Schema.String,
+          includeTime: Schema.Boolean.pipe(Schema.optional),
+        },
+      },
+      (params) =>
+        Effect.gen(function* () {
+          const time = params.includeTime
+            ? `The time is ${new Date().toLocaleTimeString()}`
+            : "";
+          return [
+            {
+              role: "assistant",
+              content: {
+                type: "text",
+                text: `Hello ${params.name}! ${time} Hope you're having a great day!`,
+              },
+            },
+          ];
+        })
+    )
+  )
   .finalize();
-
 /**
  * Server
  */

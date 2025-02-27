@@ -1,11 +1,17 @@
 import { AiToolkit } from "@effect/ai";
-import { Effect, Layer, Match, Option, Predicate, Schema, Scope } from "effect";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Match from "effect/Match";
+import * as Option from "effect/Option";
+import * as Predicate from "effect/Predicate";
+import * as Schema from "effect/Schema";
+import * as Scope from "effect/Scope";
 import * as HashMap from "effect/HashMap";
 import * as JsonSchema from "effect/JSONSchema";
 import * as AST from "effect/SchemaAST";
 import { JsonRpcError } from "../error.js";
 import { Messenger } from "../messenger.js";
-import * as PromptKit from "../prompt-kit.js";
+import * as PromptKit from "../prompts/prompt-kit.js";
 import {
   CallToolRequest,
   CallToolResult,
@@ -180,7 +186,6 @@ export const make = (
 
         console.dir({ ast, propertySigs, args }, { depth: null });
 
-        // TODO: Extract arguments from prompt.arguments schema
         prompts.push({
           name: prompt.name,
           description: prompt.description,
