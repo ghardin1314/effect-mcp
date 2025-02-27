@@ -1,4 +1,5 @@
-import { Effect, PubSub } from "effect";
+import * as Effect from "effect/Effect";
+import * as PubSub from "effect/PubSub";
 import type { JsonRpcError } from "./error.js";
 import type {
   JSONRPCMessage,

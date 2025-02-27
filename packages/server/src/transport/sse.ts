@@ -1,12 +1,13 @@
 // SSE Api Route
 
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse,
-} from "@effect/platform";
+import * as HttpRouter from "@effect/platform/HttpRouter";
+import * as HttpServerRequest from "@effect/platform/HttpServerRequest";
+import * as HttpServerResponse from "@effect/platform/HttpServerResponse";
 import * as HttpHeaders from "@effect/platform/Headers";
-import { Effect, pipe, Schema, Stream } from "effect";
+import * as Effect from "effect/Effect";
+import { pipe } from "effect/Function";
+import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
 import { Messenger } from "../messenger.js";
 import { JSONRPCMessage } from "../schema.js";
 import { handleMessage } from "./shared.js";

@@ -41,11 +41,12 @@ Also MCP itself is still early and under development. There is currently a somew
 
 - [x] Basic JSON-RPC message handling
 - [x] Stdio transport implementation
-- [ ] SSE transport implementation
+- [x] SSE transport implementation
 - [x] Server initialization
 - [x] Ping implementation
 - [ ] Add comprehensive error handling
 - [ ] Add tests
+- [ ] Ensure error codes match Spec
 
 #### MCP Client -> Server Requests
 

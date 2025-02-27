@@ -1,14 +1,12 @@
-import { Terminal } from "@effect/platform";
-import {
-  Context,
-  Effect,
-  FiberRef,
-  HashSet,
-  Layer,
-  Queue,
-  Schedule,
-  Schema,
-} from "effect";
+import * as Terminal from "@effect/platform/Terminal";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as FiberRef from "effect/FiberRef";
+import * as HashSet from "effect/HashSet";
+import * as Layer from "effect/Layer";
+import * as Queue from "effect/Queue";
+import * as Schedule from "effect/Schedule";
+import * as Schema from "effect/Schema";
 import { MCP } from "../mcp/mcp.js";
 import { Messenger } from "../messenger.js";
 import { JSONRPCMessage } from "../schema.js";

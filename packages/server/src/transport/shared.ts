@@ -1,12 +1,11 @@
-import type { JSONRPCRequest } from "../schema.js";
-
-import { Match, pipe } from "effect";
-
-import { Effect } from "effect";
+import * as Effect from "effect/Effect";
+import { pipe } from "effect/Function";
+import * as Match from "effect/Match";
 import { MCP } from "../mcp/mcp.js";
 import type {
   JSONRPCError,
   JSONRPCMessage,
+  JSONRPCRequest,
   JSONRPCResponse,
 } from "../schema.js";
 
