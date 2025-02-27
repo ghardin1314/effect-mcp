@@ -1,4 +1,4 @@
-import { Terminal } from "@effect/platform";
+import * as Terminal from "@effect/platform/Terminal";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FiberRef from "effect/FiberRef";

@@ -1,10 +1,8 @@
 // SSE Api Route
 
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse,
-} from "@effect/platform";
+import * as HttpRouter from "@effect/platform/HttpRouter";
+import * as HttpServerRequest from "@effect/platform/HttpServerRequest";
+import * as HttpServerResponse from "@effect/platform/HttpServerResponse";
 import * as HttpHeaders from "@effect/platform/Headers";
 import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";

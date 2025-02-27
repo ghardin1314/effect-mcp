@@ -1,4 +1,4 @@
-import { AiToolkit } from "@effect/ai";
+import * as AiToolkit from "@effect/ai/AiToolkit";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Match from "effect/Match";

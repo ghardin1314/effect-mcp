@@ -57,12 +57,12 @@ const PromptkitLive = PromptKit.empty
         description: "Greet someone with a friendly message",
         arguments: {
           name: Schema.String,
-          includeTime: Schema.Boolean.pipe(Schema.optional),
+          includeTime: Schema.String.pipe(Schema.optional),
         },
       },
       (params) =>
         Effect.gen(function* () {
-          const time = params.includeTime
+          const time = params.includeTime === "true"
             ? `The time is ${new Date().toLocaleTimeString()}`
             : "";
           return [
